@@ -1,91 +1,55 @@
 # Vice Point
 
-[![Vice Point](https://make.fun/badge/gta6-01.svg)](https://make.fun/c/gta6-01)
-[![Rank](https://make.fun/badge/gta6-01/muherilobak-web/gta6-01/rank.svg)](https://make.fun/c/gta6-01)
-[![Reward](https://make.fun/badge/gta6-01/muherilobak-web/gta6-01/reward.svg)](https://make.fun/c/gta6-01)
+![Vice Point](https://make.fun/badge/gta6-01.svg)
+![Rank](https://make.fun/badge/gta6-01/muherilobak-web/gta6-01/rank.svg)
+![Reward](https://make.fun/badge/gta6-01/muherilobak-web/gta6-01/reward.svg)
 
-**Vice Point** is a complete open-world crime game in the spirit of the open-world crime genre, built for the [make.fun](https://make.fun) gta6-01 bounty. One dense sun-soaked coastal district, six story missions, and every system of the genre wired together — all running offline from static files in a desktop browser.
+An open-world action game set in a single dense coastal district at golden hour. Drive, steal cars, dodge the police, and run six story missions for Mara Reyes — from a first delivery job at the marina to the big bank score.
 
-## The game
+Play it here: [https://make.fun/r/bt57jd3y](https://make.fun/r/bt57jd3y)
 
-Mara Reyes, ex-getaway driver, is back in Vice Point for one last job. The district is a 6×6-block coastal city at golden hour: a beachfront avenue with palms, a downtown of neon towers, a canal crossed by one bridge, a market street and a marina.
+## The district
 
-- **On foot and by car** — third-person walking, running and jumping, plus arcade driving in five car models (sedan, coupe, SUV, pickup, taxi), each with its own handling.
-- **Steal any car** — walk up to a parked or traffic car and press E. Steal in view of the police and the heat is on.
-- **Wanted 1–5 stars** — police interceptors chase and ram; roadblocks appear from 3 stars; the heat cools off when you stay out of sight. Get busted or wasted and you wake up at Vice Point General with a fine.
-- **Six story missions** — First Gear, Repo Run, The Courier, Stash House, Getaway Fleet and The Big One, with waypoint beacons, objective banners, pass/fail and cash rewards, chained automatically.
-- **Side work** — taxi fares, vigilante targets, 20 collectible packages and stunt jumps.
-- **Combat** — fists, pistol and SMG, with gang enemies and officers who shoot back, plus health, armor and weapon pickups.
-- **HUD** — health, armor, cash, wanted stars, weapon and ammo, speedometer, clock, objective banner and a live canvas minimap with blips for the player, the objective, police, traffic, enemies and packages.
-- **Menus and save** — title screen, pause menu, and a localStorage save (position, cash, mission progress, collectibles) with autosave after every mission.
-- **Sound** — everything synthesized with WebAudio: engine, sirens, gunshots, UI clicks and one original synthwave radio loop. No audio files.
-- **Polish** — particles, muzzle flashes, skid marks, damage smoke, explosions, screen shake and a golden-hour sky.
+One 6×6-block beach district, built entirely from procedural art: a beachfront avenue lined with palms, a downtown of neon-signed towers, a marina with moored boats, and a harbour basin in the south-east corner. The sun hangs low over the ocean and the whole city glows orange at the horizon. No assets are downloaded — every texture is painted on canvas at load, every sound is synthesized in the browser.
 
-Nothing from Rockstar Games or any other commercial game.
+## How to play
 
-## Controls
+- **WASD** move / drive, **mouse** look, **Shift** run, **Space** jump (on foot) or handbrake (in a car)
+- **E** steal a car / exit a car
+- **Click** shoot, **1 / 2 / 3** switch between fists, pistol and SMG
+- **P** or **Esc** pause (save from the pause menu)
+- Progress saves automatically after every mission and every 30 seconds
 
-| Key | Action |
-| --- | --- |
-| WASD / arrows | Drive / walk |
-| Mouse | Look and aim |
-| Click | Shoot / punch |
-| E | Enter / steal a car |
-| Space | Jump on foot, handbrake in a car |
-| Q | Next weapon |
-| H | Horn |
-| M | Minimap zoom |
-| Esc | Pause |
+On foot you can walk the sidewalks with the pedestrians; in a car you can take anything parked or moving — but stealing a marked car calls the police. Wanted stars rise with crimes and decay when you break line of sight. At three stars and up, the police set roadblocks. Get busted on foot or wasted in a fight and you wake up at the hospital, lighter in the wallet.
 
-## Play it
+## The six missions
 
-Serve `game/` with any static server and open `game/index.html`:
+1. **First Gear** — $250. Drive to the docks, pick up the heat, lose the tail.
+2. **Repo Run** — $400. Steal the marked coupe and deliver it to the garage.
+3. **The Courier** — $500. Tail the courier for 45 seconds. Close, but never spotted.
+4. **Stash House** — $700. Defend the stash house through three waves.
+5. **Getaway Fleet** — $900. Steal three getaway cars and bring them home.
+6. **The Big One** — $2,500. Hit the bank, then escape a four-star chase to the marina.
 
-```sh
-node serve.ts
-# then open http://localhost:8080
-```
+Twenty packages are hidden around the district, worth $50 each. Your cash, position, weapons and completed missions persist across sessions.
 
-No network is needed — every script, module and asset is a file under `game/`, with three.js vendored as `game/vendor/three.module.min.js`.
+## Tech
 
-## Structure
+- Three.js (vendored, no build step, no network at runtime)
+- WebAudio synthesis only — engine hum, sirens, gunfire, mission stingers
+- Save/load in `localStorage`, exact round-trip of cash, position and mission state
+- Screenshots staged in-game with `?shot=chase|street|combat|marina`
 
-- `game/index.html` — the page, HUD and menus
-- `game/src/main.js` — boot and the one game loop
-- `game/src/city.js` — the district, buildings, props, collision
-- `game/src/player.js` — Mara on foot and the third-person camera
-- `game/src/vehicles.js` — car models and arcade driving physics
-- `game/src/traffic.js` — traffic AI, lights, honking
-- `game/src/pedestrians.js` — pedestrians who stroll and flee
-- `game/src/police.js` — wanted level, pursuit cars, roadblocks
-- `game/src/combat.js` — enemies, pickups, shooting
-- `game/src/missions.js` — the six-mission story and side work
-- `game/src/hud.js` — HUD and live minimap
-- `game/src/audio.js` — synthesized WebAudio sound and radio
-- `game/src/effects.js` — particles, smoke, skid marks, screen shake
-- `game/src/save.js` — localStorage save and load
-- `game/src/input.js` — keyboard and mouse input
-- `game/src/config.js` — tuning numbers, car models, the story
-- `game/src/rng.js` — seeded random and math helpers
-- `game/src/shots.js` — screenshot staging behind `?shot=`
+## Development
 
-## Screenshots
-
-Four real renders of the game, taken in a headless browser from the game's own code:
-
-1. `1-chase.jpg` — golden-hour police chase, 3 stars, on the beachfront avenue
-2. `2-street.jpg` — on foot downtown, with traffic, pedestrians and neon
-3. `3-combat.jpg` — the stash-house shootout
-4. `4-marina.jpg` — the marina, player beside a stolen coupe
-
-## Build
+Serve the folder and open `game/index.html`:
 
 ```sh
-mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+python3 -m http.server 8080
 ```
 
-This copies `game/` and `screenshots/` to the output directory and writes `dossier.json` with the vendored make.fun library.
+Then visit `http://localhost:8080/game/index.html`. The dossier is generated with `node main.ts` (output goes to `MAKEFUN_OUTPUT_DIR`, default `/output`).
 
-## License
+## Disclaimer
 
-MIT. Built for make.fun — [join with referral bt57jd3y](https://make.fun/r/bt57jd3y).
+Vice Point is a fan-made open-world action game. It is not affiliated with, sponsored by, or endorsed by any existing game franchise, and it uses no assets, names, characters or music from any other game. All art is procedural and all audio is synthesized.
