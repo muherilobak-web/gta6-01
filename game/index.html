@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice Point — an open-world crime game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); z-index: 5; }
+  #top-right { position: absolute; top: 14px; right: 16px; text-align: right; }
+  #cash { font-size: 26px; font-weight: 800; color: #7dff9a; }
+  #stars { font-size: 26px; letter-spacing: 3px; color: #ffd23f; }
+  #stars.hot { color: #ff5a4a; animation: blink 0.7s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .45; } }
+  #clock { font-size: 15px; opacity: .9; }
+  #top-left { position: absolute; top: 14px; left: 16px; width: 220px; }
+  .bar-label { font-size: 11px; letter-spacing: 2px; opacity: .85; margin: 6px 0 2px; }
+  .bar { height: 10px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); border-radius: 3px; overflow: hidden; }
+  .bar > div { height: 100%; transition: width .15s; }
+  #health-fill { background: linear-gradient(90deg, #37d67a, #7dff9a); width: 100%; }
+  #armor-fill { background: linear-gradient(90deg, #3f8cff, #7ab8ff); width: 0%; }
+  #weapon-line { margin-top: 8px; font-size: 16px; font-weight: 700; }
+  #ammo { opacity: .85; }
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: rgba(10,10,16,.72); border: 1px solid rgba(255,210,63,.6); border-radius: 6px; padding: 8px 16px; font-size: 16px; font-weight: 600; max-width: 60vw; text-align: center; display: none; }
+  #objective.pulse { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { border-color: #ffd23f; box-shadow: 0 0 14px rgba(255,210,63,.5); } }
+  #speed-wrap { position: absolute; right: 18px; bottom: 20px; text-align: right; display: none; }
+  #speed { font-size: 44px; font-weight: 800; line-height: 1; }
+  #speed-unit { font-size: 13px; opacity: .85; }
+  #minimap { position: absolute; left: 16px; bottom: 16px; width: 190px; height: 190px; border: 2px solid rgba(255,255,255,.4); border-radius: 6px; background: #10151d; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; display: none; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 3px #000; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
+  #toast { position: absolute; bottom: 220px; left: 50%; transform: translateX(-50%); background: rgba(10,10,16,.8); padding: 8px 18px; border-radius: 20px; font-size: 15px; opacity: 0; transition: opacity .3s; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+  #mission-card { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity .4s; }
+  #mission-card.show { opacity: 1; }
+  #mission-card-title { font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #ffd23f; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+  #mission-card-body { font-size: 17px; margin-top: 6px; }
+  #help { position: absolute; right: 16px; bottom: 120px; font-size: 12px; opacity: .75; text-align: right; line-height: 1.7; }
+  /* ---- Menus ---- */
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(20,8,4,.82), rgba(40,16,8,.88)); color: #fff; z-index: 10; text-align: center; }
+  .screen h1 { font-size: 64px; margin: 0; letter-spacing: 4px; color: #ffd23f; text-shadow: 0 4px 24px rgba(255,120,40,.6); }
+  .screen h2 { font-size: 15px; font-weight: 400; opacity: .9; margin: 8px 0 28px; max-width: 560px; line-height: 1.6; }
+  .screen button { pointer-events: auto; display: block; margin: 8px auto; padding: 12px 34px; font-size: 17px; font-weight: 700; color: #1a1210; background: #ffd23f; border: none; border-radius: 6px; cursor: pointer; min-width: 260px; }
+  .screen button:hover { background: #ffe27a; }
+  .screen button.secondary { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.4); }
+  .controls { font-size: 13px; opacity: .85; line-height: 1.9; margin-top: 26px; }
+  #pause-screen, #over-screen { display: none; }
+  #over-title { font-size: 54px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game" aria-label="Vice Point: an open-world crime game. Drive, steal cars, outrun the police and run six story missions."></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="top-left">
+    <div class="bar-label">HEALTH</div>
+    <div class="bar"><div id="health-fill"></div></div>
+    <div class="bar-label">ARMOR</div>
+    <div class="bar"><div id="armor-fill"></div></div>
+    <div id="weapon-line"><span id="weapon">Fists</span> · <span id="ammo">∞</span></div>
+  </div>
+  <div id="top-right">
+    <div id="cash">$150</div>
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="clock">06:00 PM</div>
+  </div>
+  <div id="objective"><span id="objective-text"></span></div>
+  <canvas id="minimap" width="190" height="190"></canvas>
+  <div id="speed-wrap"><span id="speed">0</span><div id="speed-unit">km/h</div></div>
+  <div id="crosshair"></div>
+  <div id="toast"></div>
+  <div id="mission-card"><div id="mission-card-title"></div><div id="mission-card-body"></div></div>
+  <div id="help">WASD drive / walk · E enter car · Space jump / handbrake<br>Mouse aim · Click shoot · Q weapon · H horn · M map · Esc pause</div>
+</div>
+
+<div id="title-screen" class="screen">
+  <h1>VICE POINT</h1>
+  <h2>One dense coastal district. Six missions. Mara Reyes, ex-getaway driver, is back for one last job — steal, drive, outrun the Vice Point force and make it to the boat.</h2>
+  <button id="btn-new">New game</button>
+  <button id="btn-continue" class="secondary">Continue</button>
+  <div class="controls">WASD — drive / walk &nbsp;·&nbsp; E — enter / steal a car &nbsp;·&nbsp; Space — jump / handbrake<br>Mouse — look &amp; aim &nbsp;·&nbsp; Click — shoot / punch &nbsp;·&nbsp; Q — weapon &nbsp;·&nbsp; Esc — pause</div>
+</div>
+
+<div id="pause-screen" class="screen">
+  <h1 id="pause-title" style="font-size:44px">PAUSED</h1>
+  <button id="btn-resume">Resume</button>
+  <button id="btn-save" class="secondary">Save game</button>
+  <button id="btn-restart-mission" class="secondary">Restart current mission</button>
+  <button id="btn-quit" class="secondary">Save &amp; quit to title</button>
+</div>
+
+<div id="over-screen" class="screen">
+  <h1 id="over-title">WASTED</h1>
+  <h2 id="over-body"></h2>
+  <button id="btn-respawn">Back on the street</button>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
