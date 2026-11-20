@@ -1,74 +1,119 @@
-// Vice Point — screenshot scenes behind ?shot=chase|street|combat|marina.
-// Each one stages a real moment of the game — the same world, the same
-// rules, the same HUD — then hands control to a small autopilot (or none)
-// while the page paints. main.js sets window.__shotReady once the scene
-// has settled, so a screenshot is a frame of the game actually running,
-// never a mock-up. The cover (chase) is the most important: the camera is
-// a 3/4 rear view, so the player coupe AND the dark VPPD cars behind it
-// are both in frame, with the warm horizon at the end of the avenue.
-import { VEHICLE_TYPES } from './config.js';
-import { clampNumber } from './rng.js';
-import { makeCar } from './vehicles.js';
+// Screenshot staging: puts the game into a composed frame for each of
+// the four shots, then raises window.__shotReady once it has rendered.
 
-export const SHOT_NAMES = ['chase', 'street', 'combat', 'marina'];
+import * as THREE from 'three';
 
-export function stageShot(name, G) {
-  const L = G.city.LOCATIONS;
-  const shot = { name, autopilot: null, settleSeconds: 2.2 };
-  if (name === 'chase') {
-    const coupe = makeCar(G.scene, VEHICLE_TYPES[1], 0, -120, 0, { driver: null });
-    G.allCars.push(coupe);
-    G.enterCar(coupe);
-    coupe.speed = 28;
-    G.police.wanted = 3;
-    // Two interceptors close behind, offset sideways so the 3/4 camera
-    // sees both of them beside the coupe instead of hidden behind it.
-    const p1 = G.police.spawnAt(2.2, -128, 0);
-    const p2 = G.police.spawnAt(-2.4, -138, 0);
-    p1.speed = 27;
-    p2.speed = 26;
-    G.missions.setObjective('Lose the tail — get to the marina', L.marina);
-    G.hud.showCard('First Gear', 'One last job. Drive to the docks and lose the patrol car on your tail.');
-    let t = 0;
-    shot.autopilot = (dt) => {
-      t += dt;
-      const car = G.playerCar;
-      if (!car) return;
-      const steer = clampNumber((0 - car.x) * 0.09, -0.5, 0.5) + Math.sin(t * 0.8) * 0.06;
-      car.update(dt, car.speed < 32 ? 0.9 : 0.4, steer, false, (x, z, r) => G.city.collideCircle(x, z, r));
-      G.trafficAvoidPlayer = true;
+function waitReady(game) {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (window.__gameReady) resolve(game);
+      else setTimeout(check, 50);
     };
-    shot.settleSeconds = 2.6;
+    check();
+  });
+}
+
+function shotCam(game, px, py, pz, lx, ly, lz) {
+  game.shotCamera = {
+    pos: new THREE.Vector3(px, py, pz),
+    look: new THREE.Vector3(lx, ly, lz),
+  };
+}
+
+export async function stageShot(name) {
+  const game = await waitReady(window.__game);
+  // Play straight into the scene: skip the menu, no pause.
+  game.setState('playing');
+  // Start mission 0 so the HUD objective pill shows a real objective:
+  // updateHud rewrites the pill from missions.objective every frame,
+  // so without this the pill reads "Mission 1 — First Gear: " empty.
+  game.missions.start(0);
+  const seed = new URLSearchParams(location.search).get('seed') || '7';
+  void seed;
+  // Combat only: re-shoot in the ready callback below so the tracer
+  // (0.09 s life) is fresh in the captured frame.
+  let combatShot = null;
+
+  if (name === 'chase') {
+    // Red coupe mid-drift on the beachfront avenue, two interceptors
+    // behind, three stars, camera looking west into the sunset.
+    const coupe = game.spawnMissionCar('coupe', -60, 20, Math.PI / 2 + 0.35, false);
+    game.player.setPosition(-60, 20, Math.PI / 2);
+    game.enterCar(coupe);
+    coupe.speed = 16;
+    const p1 = game.police.cars[0] || null;
+    game.police.setWanted(3);
+    const cops = game.police.cars;
+    if (cops[0]) {
+      cops[0].pos.set(-34, 0, 28);
+      cops[0].heading = Math.PI / 2;
+      cops[0].speed = 14;
+    }
+    if (cops[1]) {
+      cops[1].pos.set(-30, 0, 12);
+      cops[1].heading = Math.PI / 2 + 0.1;
+      cops[1].speed = 15;
+    }
+    void p1;
+    // Stage 1 of mission 0: the tail is on. Set the mission state itself
+    // (hud.setObjective is overwritten by updateHud every frame).
+    game.missions.stage = 1;
+    game.missions.objective = 'Lose the tail — get out of sight';
+    game.missions.setWaypoint(game.missions.waypoint.x, game.missions.waypoint.z, 'Lose the tail');
+    shotCam(game, -8, 6.5, 42, -70, 2, 0);
+    game.effects.skid(coupe.pos, coupe.heading);
+    game.effects.puffSmoke(coupe.pos);
   } else if (name === 'street') {
-    G.player.x = 7;
-    G.player.z = -100;
-    G.player.camYaw = 0;
-    G.player.camPitch = 0.4;
-    G.missions.setObjective('Get to the stash house', L.stashHouse);
-    G.hud.toast('Vice Point — every street is open. Find work, or make it.');
-    shot.settleSeconds = 1.6;
+    // Player on foot in the middle of a road, camera looking straight
+    // down the road axis so buildings flank both sides (roads run at
+    // x/z = -150,-90,-30,30,90,150; (0,0) is inside a block).
+    game.player.setPosition(30, 0, Math.PI);
+    game.player.group.visible = true;
+    shotCam(game, 30, 3.5, 14, 30, 1.5, -40);
   } else if (name === 'combat') {
-    G.player.x = L.stashHouse.x - 14;
-    G.player.z = L.stashHouse.z - 6;
-    G.player.camYaw = Math.atan2(L.stashHouse.x - G.player.x, L.stashHouse.z - G.player.z);
-    G.playerWeapon = 'smg';
-    G.ammo = { fists: Infinity, pistol: 60, smg: 120 };
-    G.combat.spawnEnemy('gang', L.stashHouse.x + 4, L.stashHouse.z - 2, 50);
-    G.combat.spawnEnemy('gang', L.stashHouse.x - 2, L.stashHouse.z + 5, 50);
-    G.combat.spawnEnemy('gang', L.stashHouse.x + 8, L.stashHouse.z + 6, 50);
-    G.missions.setObjective('Defend the stash house — wave 1 of 3', L.stashHouse);
-    G.effects.muzzle(G.player.x + 1, 1.4, G.player.z + 1, 0.5, 0.5);
-    shot.settleSeconds = 1.4;
+    // Shootout staged on the open road x=30 so no building blocks the
+    // sightline: player mid-road, three gang members ahead down the road,
+    // camera behind the player looking straight down the road axis.
+    game.player.setPosition(30, -60, Math.PI);
+    game.combat.giveWeapon('pistol', 24);
+    game.combat.selectWeapon('pistol');
+    game.combat.makeEnemy(30, -72);
+    game.combat.makeEnemy(26, -76);
+    game.combat.makeEnemy(34, -80);
+    const from = game.player.pos.clone();
+    const dir = new THREE.Vector3(0, 0.05, -1).normalize();
+    game.combat.shoot(from, dir, true);
+    combatShot = { from, dir };
+    shotCam(game, 30, 4, -44, 30, 1.5, -72);
+  } else if (name === 'marina') {
+    const car = game.spawnMissionCar('coupe', 132, 140, Math.PI * 0.75, false);
+    game.player.setPosition(136, 144, Math.PI * 0.75);
+    game.player.group.visible = true;
+    void car;
+    shotCam(game, 158, 5.5, 118, 128, 1.5, 148);
   } else {
-    const coupe = makeCar(G.scene, VEHICLE_TYPES[1], 134, 118, 2.6, { driver: 'parked' });
-    G.allCars.push(coupe);
-    G.player.x = 140;
-    G.player.z = 114;
-    G.player.camYaw = 0.15;
-    G.player.camPitch = 0.5;
-    G.missions.setObjective('Deliver the sedan to the marina', L.marina);
-    G.hud.toast('The boat is waiting. One more delivery and the job is done.');
-    shot.settleSeconds = 1.6;
+    shotCam(game, -120, 30, -100, -140, 1, -140);
   }
-  return shot;
+  // Let two frames render, then signal readiness. For combat, fire
+  // once more in this same task so the tracer is fresh (0.09 s life)
+  // in the frame the harness captures 50 ms later.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (combatShot) {
+        game.combat.cooldown = 0;
+        game.combat.shoot(combatShot.from, combatShot.dir, true);
+        // Hold the staged tracer for the capture: its 0.09 s life would
+        // expire in the frames between here and the harness screenshot
+        // 50 ms later. Staging-only; the game's own tracer life is untouched.
+        for (const t of game.effects.tracers || []) t.userData.life = 0.6;
+      }
+      window.__shotReady = true;
+    });
+  });
+}
+
+const params = new URLSearchParams(location.search);
+const shot = params.get('shot');
+if (shot) {
+  stageShot(shot);
 }

@@ -1,133 +1,153 @@
-// Vice Point — Mara on foot. A simple articulated low-poly figure with a
-// walk/run cycle, a jump, a punch animation and a third-person camera that
-// orbits with the mouse, pulls in close while aiming, and swings behind the
-// car while driving.
-import * as THREE from 'three';
-import { WORLD } from './config.js';
-import { clampNumber, normaliseAngle } from './rng.js';
+// Mara Reyes on foot: a low-poly articulated figure, third-person camera
+// with mouse orbit, run, jump, punch. Entering a car hands control to
+// the vehicle module; exiting drops her beside it.
 
-export function buildPlayerFigure() {
-  const group = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({ color: 0xc98a5e, roughness: 0.8 });
-  const jacket = new THREE.MeshStandardMaterial({ color: 0xd84a2f, roughness: 0.7 });
-  const jeans = new THREE.MeshStandardMaterial({ color: 0x2a3a5a, roughness: 0.85 });
-  const hair = new THREE.MeshStandardMaterial({ color: 0x1c1210, roughness: 0.9 });
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.75, 0.34), jacket);
-  torso.position.y = 1.25;
-  torso.castShadow = true;
-  group.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), skin);
-  head.position.y = 1.85;
-  head.castShadow = true;
-  group.add(head);
-  const hairMesh = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair);
-  hairMesh.position.y = 1.9;
-  group.add(hairMesh);
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.8, 0.24), jeans);
-  legL.position.set(-0.17, 0.4, 0);
-  legL.castShadow = true;
-  group.add(legL);
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.8, 0.24), jeans);
-  legR.position.set(0.17, 0.4, 0);
-  legR.castShadow = true;
-  group.add(legR);
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.7, 0.2), jacket);
-  armL.position.set(-0.42, 1.25, 0);
-  armL.castShadow = true;
-  group.add(armL);
-  const armR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.7, 0.2), jacket);
-  armR.position.set(0.42, 1.25, 0);
-  armR.castShadow = true;
-  group.add(armR);
-  return { group, legL, legR, armL, armR };
+import * as THREE from 'three';
+import { WALK_SPEED, RUN_SPEED, JUMP_SPEED, GRAVITY } from './config.js';
+
+function limbMat(color) {
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
 }
 
-export function makePlayer(scene, startX, startZ) {
-  const figure = buildPlayerFigure();
-  figure.group.position.set(startX, 0, startZ);
-  scene.add(figure.group);
-  const player = {
-    mesh: figure,
-    x: startX,
-    z: startZ,
-    y: 0,
-    heading: 0,
-    camYaw: 0,
-    camPitch: 0.35,
-    vy: 0,
-    onGround: true,
-    health: WORLD.playerHealth,
-    armor: 0,
-    inCar: null,
-    walkCycle: 0,
-    punchTimer: 0,
-    punch() {
-      this.punchTimer = 0.3;
-    },
-    update(dt, axes, mouse, collide) {
-      this.camYaw -= mouse.x * 0.0032;
-      this.camPitch = clampNumber(this.camPitch + mouse.y * 0.0022, -0.15, 1.1);
-      const moving = Math.abs(axes.forward) > 0 || Math.abs(axes.strafe) > 0;
-      const speed = axes.run ? WORLD.runSpeed : WORLD.walkSpeed;
-      if (moving) {
-        const moveAngle = this.camYaw + Math.atan2(axes.strafe, axes.forward);
-        const stepX = Math.sin(moveAngle) * speed * dt;
-        const stepZ = Math.cos(moveAngle) * speed * dt;
-        const resolved = collide(this.x + stepX, this.z + stepZ, WORLD.playerRadius);
-        this.x = resolved.x;
-        this.z = resolved.z;
-        this.heading = normaliseAngle(moveAngle);
-        this.walkCycle += dt * speed * 1.6;
+export class Player {
+  constructor(scene) {
+    this.scene = scene;
+    this.pos = new THREE.Vector3(-140, 0, -140);
+    this.heading = Math.PI / 2;
+    this.camYaw = Math.PI / 2;
+    this.camPitch = 0.32;
+    this.velY = 0;
+    this.grounded = true;
+    this.inCar = null;
+    this.walkPhase = 0;
+    this.moving = false;
+    this.health = 100;
+    this.armor = 0;
+    this.group = new THREE.Group();
+    const skin = limbMat(0xc98a5e);
+    const jacket = limbMat(0x2e6f6a);
+    const pants = limbMat(0x2a2a33);
+    const hair = limbMat(0x1c1410);
+    this.legL = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.85, 0.26), pants);
+    this.legL.position.set(-0.16, 0.42, 0);
+    this.legR = this.legL.clone();
+    this.legR.position.x = 0.16;
+    this.armL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.75, 0.2), jacket);
+    this.armL.position.set(-0.36, 1.15, 0);
+    this.armR = this.armL.clone();
+    this.armR.position.x = 0.36;
+    this.torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.34), jacket);
+    this.torso.position.y = 1.2;
+    this.head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.36, 0.32), skin);
+    this.head.position.y = 1.82;
+    this.hairM = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.14, 0.36), hair);
+    this.hairM.position.y = 2.02;
+    this.group.add(this.legL, this.legR, this.armL, this.armR, this.torso, this.head, this.hairM);
+    // Soft blob shadow.
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.55, 16),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    this.group.add(shadow);
+    this.group.position.copy(this.pos);
+    scene.add(this.group);
+  }
+
+  setPosition(x, z, heading) {
+    this.pos.set(x, 0, z);
+    if (heading !== undefined) {
+      this.heading = heading;
+      this.camYaw = heading;
+    }
+    this.group.position.copy(this.pos);
+  }
+
+  update(dt, input, resolveCircle) {
+    if (this.inCar) return;
+    const axes = input.axes();
+    const run = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+    const speed = run ? RUN_SPEED : WALK_SPEED;
+    const mouse = input.consumeMouse();
+    this.camYaw -= mouse.dx * 0.0032;
+    this.camPitch = Math.max(-0.15, Math.min(0.7, this.camPitch + mouse.dy * 0.0022));
+    const sin = Math.sin(this.camYaw);
+    const cos = Math.cos(this.camYaw);
+    // Camera-relative movement: forward is where the camera looks.
+    let mx = 0;
+    let mz = 0;
+    if (axes.y !== 0 || axes.x !== 0) {
+      const fx = -sin;
+      const fz = -cos;
+      const rx = -cos;
+      const rz = sin;
+      mx = fx * axes.y + rx * axes.x;
+      mz = fz * axes.y + rz * axes.x;
+      const len = Math.hypot(mx, mz) || 1;
+      mx /= len;
+      mz /= len;
+      this.heading = Math.atan2(mx, mz);
+    }
+    this.moving = axes.x !== 0 || axes.y !== 0;
+    this.pos.x += mx * speed * dt;
+    this.pos.z += mz * speed * dt;
+    if (this.grounded && input.isDown('Space')) {
+      this.velY = JUMP_SPEED;
+      this.grounded = false;
+    }
+    if (!this.grounded) {
+      this.velY -= GRAVITY * dt;
+      this.pos.y += this.velY * dt;
+      if (this.pos.y <= 0) {
+        this.pos.y = 0;
+        this.velY = 0;
+        this.grounded = true;
       }
-      if (axes.jump && this.onGround) {
-        this.vy = WORLD.jumpSpeed;
-        this.onGround = false;
-      }
-      if (!this.onGround) {
-        this.vy -= WORLD.gravity * dt;
-        this.y += this.vy * dt;
-        if (this.y <= 0) {
-          this.y = 0;
-          this.vy = 0;
-          this.onGround = true;
-        }
-      }
-      if (this.punchTimer > 0) this.punchTimer -= dt;
-      const swing = moving ? Math.sin(this.walkCycle) * 0.55 : 0;
-      figure.legL.rotation.x = swing;
-      figure.legR.rotation.x = -swing;
-      figure.armL.rotation.x = -swing * 0.8;
-      figure.armR.rotation.x = this.punchTimer > 0 ? -1.6 : swing * 0.8;
-      figure.group.position.set(this.x, this.y, this.z);
-      figure.group.rotation.y = this.heading;
-    },
-    updateCamera(camera, dt, shake, aiming) {
-      const distance = aiming ? 3.4 : 5.2;
-      const height = aiming ? 1.9 : 2.6;
-      const targetX = this.x - Math.sin(this.camYaw) * distance;
-      const targetZ = this.z - Math.cos(this.camYaw) * distance;
-      const targetY = this.y + height + this.camPitch * 1.6;
-      camera.position.x += (targetX - camera.position.x) * Math.min(1, dt * 9);
-      camera.position.y += (targetY - camera.position.y) * Math.min(1, dt * 9);
-      camera.position.z += (targetZ - camera.position.z) * Math.min(1, dt * 9);
-      camera.lookAt(
-        this.x + Math.sin(this.camYaw) * 3 + shake.x,
-        this.y + 1.4 + shake.y,
-        this.z + Math.cos(this.camYaw) * 3,
-      );
-    },
-    updateCarCamera(camera, car, dt, shake) {
-      const back = 8.5;
-      const height = 3.4;
-      const fx = Math.sin(car.heading);
-      const fz = Math.cos(car.heading);
-      const targetX = car.x - fx * back;
-      const targetZ = car.z - fz * back;
-      camera.position.x += (targetX - camera.position.x) * Math.min(1, dt * 6);
-      camera.position.y += (height - camera.position.y) * Math.min(1, dt * 6);
-      camera.position.z += (targetZ - camera.position.z) * Math.min(1, dt * 6);
-      camera.lookAt(car.x + fx * 8 + shake.x, 1.2 + shake.y, car.z + fz * 8);
-    },
-  };
-  return player;
+    }
+    if (resolveCircle) resolveCircle(this.pos, 0.55);
+    // Walk cycle.
+    if (this.moving && this.grounded) {
+      this.walkPhase += dt * speed * 1.5;
+      const s = Math.sin(this.walkPhase) * 0.55;
+      this.legL.rotation.x = s;
+      this.legR.rotation.x = -s;
+      this.armL.rotation.x = -s * 0.8;
+      this.armR.rotation.x = s * 0.8;
+    } else {
+      this.legL.rotation.x *= 0.8;
+      this.legR.rotation.x *= 0.8;
+      this.armL.rotation.x *= 0.8;
+      this.armR.rotation.x *= 0.8;
+    }
+    this.group.position.copy(this.pos);
+    this.group.rotation.y = this.heading;
+  }
+
+  cameraTarget() {
+    return new THREE.Vector3(this.pos.x, this.pos.y + 1.7, this.pos.z);
+  }
+
+  cameraPosition() {
+    const dist = 6.2;
+    const h = 2.6 + Math.sin(this.camPitch) * 3.2;
+    return new THREE.Vector3(
+      this.pos.x + Math.sin(this.camYaw) * dist,
+      this.pos.y + h,
+      this.pos.z + Math.cos(this.camYaw) * dist,
+    );
+  }
+
+  damage(amount, effects, audio) {
+    let left = amount;
+    if (this.armor > 0) {
+      const absorbed = Math.min(this.armor, left * 0.6);
+      this.armor -= absorbed;
+      left -= absorbed;
+    }
+    this.health -= left;
+    if (effects) effects.addShake(0.25);
+    if (this.health < 0) this.health = 0;
+    return this.health <= 0;
+  }
 }

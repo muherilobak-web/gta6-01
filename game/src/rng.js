@@ -1,53 +1,29 @@
-// Vice Point — deterministic randomness and small math helpers.
-// Every seeded run (for example ?seed=7) builds the same district, so a
-// screenshot can be reproduced exactly. Nothing here touches the DOM.
-export function makeSeededRandom(seedValue) {
-  let state = (seedValue >>> 0) || 1;
-  return function nextRandom() {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+// Seeded random numbers (mulberry32) so staged scenes and the city
+// layout are reproducible from a single seed.
+
+export function makeRng(seed) {
+  let a = seed >>> 0;
+  return function next() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-export function chooseOne(random, list) {
-  return list[Math.floor(random() * list.length)];
+export function pick(rng, list) {
+  return list[Math.floor(rng() * list.length)];
 }
 
-export function inRange(random, low, high) {
-  return low + random() * (high - low);
+export function range(rng, lo, hi) {
+  return lo + rng() * (hi - lo);
 }
 
-export function clampNumber(value, low, high) {
-  if (value < low) return low;
-  if (value > high) return high;
-  return value;
+export function rangeInt(rng, lo, hi) {
+  return lo + Math.floor(rng() * (hi - lo + 1));
 }
 
-export function mixNumbers(a, b, t) {
-  return a + (b - a) * t;
-}
-
-// Keep an angle inside [-PI, PI] so headings never drift off to huge values.
-export function normaliseAngle(angle) {
-  let a = angle;
-  while (a > Math.PI) a -= Math.PI * 2;
-  while (a < -Math.PI) a += Math.PI * 2;
-  return a;
-}
-
-export function turnToward(current, target, amount) {
-  return current + normaliseAngle(target - current) * amount;
-}
-
-// Shortest distance from a 2D point to a line segment, x/z plane only.
-export function distanceToSegment(px, pz, ax, az, bx, bz) {
-  const dx = bx - ax;
-  const dz = bz - az;
-  const lengthSq = dx * dx + dz * dz;
-  let t = lengthSq === 0 ? 0 : ((px - ax) * dx + (pz - az) * dz) / lengthSq;
-  t = clampNumber(t, 0, 1);
-  return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
+export function chance(rng, p) {
+  return rng() < p;
 }

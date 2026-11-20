@@ -1,109 +1,83 @@
-// Vice Point — the one place every tuning number lives.
-// The district is a grid: 6 blocks of 44 units, separated by 14-unit streets,
-// 362 units across, centred on the origin. A canal cuts across it east-west
-// and a single bridge carries the avenue over the water. One unit is about
-// a metre. Golden hour is fixed: low warm sun, orange horizon, long shadows.
-export const WORLD = {
-  blockSize: 44,
-  streetWidth: 14,
-  blocksPerSide: 6,
-  canalZ: 58,
-  canalWidth: 12,
-  beachEdgeX: -181,
-  seaEdgeX: -215,
-  halfWidth: 0,
-  streetLines: [],
-  blockLines: [],
-  sunColour: 0xffb36b,
-  sunStrength: 2.6,
-  skyTop: 0x7fb2e8,
-  skyLow: 0xffc98a,
-  fogColour: 0xf2b98a,
-  walkSpeed: 6.5,
-  runSpeed: 10,
-  jumpSpeed: 8.5,
-  gravity: 24,
-  playerRadius: 0.55,
-  playerHealth: 100,
-  carTopSpeed: 42,
-  carAccel: 22,
-  carBrake: 34,
-  carSteer: 1.9,
-  maxWanted: 5,
-  wantedCoolSeconds: 14,
-  policePerStar: [0, 1, 2, 3, 4, 5],
-  missionPayouts: [250, 400, 500, 700, 900, 2500],
-  packageCount: 20,
-  packageValue: 25,
-  taxiFare: 60,
-  vigilantePayout: 150,
-  stuntPayout: 100,
-  killBonus: 40,
-  saveSlot: 'vicepoint-save-v1',
-  weapons: {
-    fists: { label: 'Fists', damage: 12, reach: 2.2, cooldown: 0.45, automatic: false, ammo: Infinity },
-    pistol: { label: 'Pistol', damage: 22, reach: 55, cooldown: 0.28, automatic: false, ammo: 60 },
-    smg: { label: 'SMG', damage: 11, reach: 45, cooldown: 0.085, automatic: true, ammo: 120 },
-  },
+// Vice Point — tuning and world layout.
+// One dense coastal district, 6x6 blocks. All numbers are the game's own
+// design: a driveable grid, a beach on the west edge, a harbour basin in
+// the south-east corner where the docks are.
+
+export const WORLD_HALF = 180;
+export const ROAD_POSITIONS = [-150, -90, -30, 30, 90, 150];
+export const ROAD_WIDTH = 14;
+export const BLOCK_PITCH = 60;
+
+// Beach and water on the west edge.
+export const BEACH_X0 = -210;
+export const BEACH_X1 = -180;
+export const WATER_X = -210;
+
+// Harbour basin (south-east corner) and the docks waypoint.
+export const HARBOUR = { x0: 120, z0: 120, x1: 180, z1: 180 };
+export const DOCKS = { x: 150, z: 112 };
+
+// Key places.
+export const PLAYER_START = { x: -140, z: -140, heading: Math.PI / 2 };
+export const HOSPITAL = { x: -150, z: -150 };
+export const GARAGE = { x: -140, z: 140 };
+export const STASH_HOUSE = { x: -90, z: 90 };
+export const BANK = { x: 30, z: -30 };
+
+// Story: six missions for Mara Reyes, one arc.
+export const MISSIONS = [
+  { title: 'First Gear', reward: 250 },
+  { title: 'Repo Run', reward: 400 },
+  { title: 'The Courier', reward: 500 },
+  { title: 'Stash House', reward: 700 },
+  { title: 'Getaway Fleet', reward: 900 },
+  { title: 'The Big One', reward: 2500 },
+];
+export const MISSION_TITLES = MISSIONS.map((m) => m.title);
+export const MISSION_REWARDS = MISSIONS.map((m) => m.reward);
+export const PACKAGE_COUNT = 20;
+export const START_CASH = 150;
+
+// Wanted: police cars per star, heat model.
+export const POLICE_PER_STAR = [0, 1, 2, 3, 4, 5];
+export const MAX_WANTED = 5;
+export const HEAT_PER_STAR = 20;
+export const HEAT_DECAY_PER_SECOND = 8;
+export const HEAT_LOSE_SIGHT_SECONDS = 5;
+export const POLICE_VIEW_RANGE = 45;
+
+// On-foot movement.
+export const WALK_SPEED = 6.5;
+export const RUN_SPEED = 9.5;
+export const JUMP_SPEED = 8;
+export const GRAVITY = 22;
+
+// Driving.
+export const CAR_TOP_SPEEDS = { sedan: 30, coupe: 38, suv: 26, pickup: 31, taxi: 30 };
+export const CAR_ACCEL = { sedan: 14, coupe: 18, suv: 11, pickup: 14, taxi: 13 };
+export const CAR_GRIP = { sedan: 7.5, coupe: 8.5, suv: 6.5, pickup: 7, taxi: 7.5 };
+
+// Combat.
+export const WEAPONS = {
+  fists: { damage: 12, range: 2.2, rate: 2.2, ammo: Infinity, auto: false },
+  pistol: { damage: 26, range: 60, rate: 3.5, ammo: 48, auto: false },
+  smg: { damage: 13, range: 50, rate: 11, ammo: 120, auto: true },
 };
+export const PLAYER_MAX_HEALTH = 100;
+export const PLAYER_MAX_ARMOR = 100;
 
-const totalSpan = WORLD.blocksPerSide * WORLD.blockSize
-  + (WORLD.blocksPerSide + 1) * WORLD.streetWidth;
-WORLD.halfWidth = totalSpan / 2;
-for (let i = 0; i <= WORLD.blocksPerSide; i += 1) {
-  WORLD.streetLines.push(
-    -WORLD.halfWidth + WORLD.streetWidth / 2 + i * (WORLD.blockSize + WORLD.streetWidth),
-  );
-}
-for (let i = 0; i < WORLD.blocksPerSide; i += 1) {
-  WORLD.blockLines.push(
-    -WORLD.halfWidth + WORLD.streetWidth + WORLD.blockSize / 2
-    + i * (WORLD.blockSize + WORLD.streetWidth),
-  );
-}
+// Traffic and pedestrians.
+export const TRAFFIC_COUNT = 14;
+export const TRAFFIC_SPEED = 10;
+export const PED_COUNT = 24;
+export const PED_SPEED = 1.6;
 
-// Five drivable models. Each has its own colour, top speed, acceleration,
-// grip and body length, so stealing a different car feels different.
-export const VEHICLE_TYPES = [
-  { id: 'sedan', label: 'Coastline Sedan', colour: 0x3f6fb5, topFactor: 0.92, accelFactor: 0.95, grip: 1.0, length: 4.6, width: 1.9 },
-  { id: 'coupe', label: 'Sunset Coupe', colour: 0xd84a2f, topFactor: 1.12, accelFactor: 1.15, grip: 0.92, length: 4.3, width: 1.85 },
-  { id: 'suv', label: 'Palm SUV', colour: 0x2e7d5b, topFactor: 0.85, accelFactor: 0.85, grip: 1.1, length: 4.9, width: 2.05 },
-  { id: 'pickup', label: 'Dock Pickup', colour: 0xc9a227, topFactor: 0.9, accelFactor: 0.9, grip: 1.05, length: 5.1, width: 2.0 },
-  { id: 'taxi', label: 'Vice Cab', colour: 0xf2c230, topFactor: 0.95, accelFactor: 1.0, grip: 1.0, length: 4.6, width: 1.9 },
-];
-
-// Mara Reyes, ex-getaway driver, pulled back in for one last job. Six
-// missions, one arc: learn the car, steal one, tail one, defend one,
-// steal two, then run the whole force to the boat.
-export const STORY = [
-  {
-    id: 'first-gear', title: 'First Gear',
-    brief: 'Mara is back in Vice Point. Take the coupe to the docks — and shake the tail.',
-    intro: 'One last job. Drive to the docks and lose the patrol car on your tail.',
-  },
-  {
-    id: 'repo-run', title: 'Repo Run',
-    brief: 'A client wants his coupe back. Steal it from the lot on Market Street and bring it to the garage.',
-    intro: 'Steal the marked coupe from the lot, then deliver it to the garage on Canal Row.',
-  },
-  {
-    id: 'courier', title: 'The Courier',
-    brief: 'Follow the courier van through traffic. Stay close enough to see it, far enough not to be seen.',
-    intro: 'Tail the courier van. Keep it in sight — but do not get spotted.',
-  },
-  {
-    id: 'stash-house', title: 'Stash House',
-    brief: 'The crew hid the cash in a house on Palm Row. Hold the street while they load it.',
-    intro: 'Defend the stash house. The street gang is coming for the cash.',
-  },
-  {
-    id: 'getaway-fleet', title: 'Getaway Fleet',
-    brief: 'The big job needs two clean cars. Steal both marked cars and park them at the marina.',
-    intro: 'Steal the two marked cars and deliver them to the marina lockup.',
-  },
-  {
-    id: 'the-big-one', title: 'The Big One',
-    brief: 'Grab the cash from the tower, then run a four-star chase to the boat at the marina. This is the last job.',
-    intro: 'Grab the cash, then outrun the whole Vice Point force to the marina boat.',
-  },
-];
+// Clock: the whole game sits at golden hour.
+export const GAME_CLOCK = '06:00 PM';
+export const SAVE_KEY = 'vicepoint-save-v1';
+export const ENEMY_DAMAGE = 8;
+export const ENEMY_HEALTH = 60;
+export const ENEMY_SHOOT_INTERVAL = 2.2;
+export const BUSTED_FINE = 200;
+export const WASTED_FINE = 150;
+export const PACKAGE_REWARD = 50;
