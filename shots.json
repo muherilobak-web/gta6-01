@@ -1,1 +1,18 @@
-[{"name":"1-chase.jpg","query":"?shot=chase&seed=7"},{"name":"2-street.jpg","query":"?shot=street&seed=7"},{"name":"3-combat.jpg","query":"?shot=combat&seed=7"},{"name":"4-marina.jpg","query":"?shot=marina&seed=7"}]
+[
+  {
+    "name": "1-chase.jpg",
+    "query": "?shot=chase&seed=7"
+  },
+  {
+    "name": "2-street.jpg",
+    "query": "?shot=street&seed=7"
+  },
+  {
+    "name": "3-combat.jpg",
+    "query": "?shot=combat&seed=7"
+  },
+  {
+    "name": "4-marina.jpg",
+    "query": "?shot=marina&seed=7"
+  }
+]
