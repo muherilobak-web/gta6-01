@@ -5,7 +5,7 @@
 // so the dossier is byte-identical across runs.
 
 import { buildDossier } from './vendor/makefun-game.ts';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(new URL('.', import.meta.url).pathname);
@@ -31,8 +31,10 @@ function copyDir(name) {
 }
 
 function main() {
-  if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
+  for (const child of readdirSync(outDir)) {
+    rmSync(join(outDir, child), { recursive: true, force: true });
+  }
   copyDir('game');
   copyDir('screenshots');
   const dossier = buildDossier(outDir, CAPS);
